@@ -20,11 +20,7 @@ RUN npm run build
 
 # Set production environment for runtime
 ENV NODE_ENV=production
-ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Expose web port
-EXPOSE 3000
-
-# Start server
-CMD ["npx", "next", "start", "-p", "3000", "-H", "0.0.0.0"]
+# Start server dynamically respecting $PORT (Render provides PORT=10000, local defaults to 3000)
+CMD ["sh", "-c", "npx next start -p ${PORT:-3000} -H 0.0.0.0"]
