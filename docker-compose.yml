@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: disfraces_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist store database on host machine
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

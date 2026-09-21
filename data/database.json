@@ -1,0 +1,30 @@
+{
+  "stores": [
+    {
+      "id": "store_principal",
+      "name": "Sede Principal",
+      "slug": "principal",
+      "phone": "",
+      "address": "",
+      "currency": "$",
+      "createdAt": "2026-09-20T00:00:00Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "user_superadmin",
+      "storeId": "store_principal",
+      "name": "Super Administrador",
+      "username": "superadmin",
+      "role": "superadmin",
+      "password": "admin123",
+      "pin": "0000",
+      "active": true,
+      "createdAt": "2026-09-20T00:00:00Z"
+    }
+  ],
+  "products": [],
+  "clients": [],
+  "rentals": [],
+  "cashMovements": []
+}
