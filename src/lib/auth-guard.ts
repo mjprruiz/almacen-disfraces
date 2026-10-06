@@ -14,11 +14,11 @@ export interface StoreAccessResult {
  * - Dueño y Empleado solo tienen acceso a su propia sede (user.storeId === storeId).
  * - Opcionalmente valida que el rol coincida con requiredRole.
  */
-export function validateStoreAccess(params: {
+export async function validateStoreAccess(params: {
   storeId: string;
   userId?: string | null;
   requiredRole?: UserRole;
-}): StoreAccessResult {
+}): Promise<StoreAccessResult> {
   const { storeId, userId, requiredRole } = params;
 
   if (!userId) {
@@ -29,7 +29,7 @@ export function validateStoreAccess(params: {
     };
   }
 
-  const user = db.getUserById(userId);
+  const user = await db.getUserById(userId);
   if (!user || user.active === false) {
     return {
       allowed: false,

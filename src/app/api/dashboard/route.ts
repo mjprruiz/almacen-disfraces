@@ -14,13 +14,13 @@ export async function GET(request: Request) {
 
     // Seguridad: Validar que el usuario pertenezca a esta sede
     if (userId) {
-      const auth = validateStoreAccess({ storeId, userId });
+      const auth = await validateStoreAccess({ storeId, userId });
       if (!auth.allowed) {
         return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
       }
 
-      const metrics = db.getDashboardMetrics(storeId);
-      const cashMovements = db.getCashMovements(storeId);
+      const metrics = await db.getDashboardMetrics(storeId);
+      const cashMovements = await db.getCashMovements(storeId);
 
       // Si el rol es empleado en la base de datos, enmascarar datos financieros
       if (auth.user?.role === 'empleado') {

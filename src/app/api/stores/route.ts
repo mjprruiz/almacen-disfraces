@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 
 export async function GET() {
   try {
-    const stores = db.getStores();
+    const stores = await db.getStores();
     return NextResponse.json({ stores });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const newStore = db.createStore({
+    const newStore = await db.createStore({
       name: name.trim(),
       phone: phone?.trim(),
       address: address?.trim(),
@@ -62,7 +62,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    const updatedStore = db.updateStore(storeId, updates);
+    const updatedStore = await db.updateStore(storeId, updates);
     return NextResponse.json({ store: updatedStore });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });

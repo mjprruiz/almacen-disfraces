@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     // Validar acceso a la sede
-    const auth = validateStoreAccess({ storeId, userId });
+    const auth = await validateStoreAccess({ storeId, userId });
     if (!auth.allowed) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
     }
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El precio de venta no puede ser negativo' }, { status: 400 });
     }
 
-    const result = db.recordSale(storeId, {
+    const result = await db.recordSale(storeId, {
       productId,
       clientId,
       userId: auth.user!.id,
@@ -37,10 +37,6 @@ export async function POST(request: Request) {
       discount: discount !== undefined ? Number(discount) : 0,
       notes,
     });
-
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
 
     return NextResponse.json({ success: true, product: result.product }, { status: 201 });
   } catch (error: any) {

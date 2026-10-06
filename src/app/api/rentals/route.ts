@@ -13,13 +13,13 @@ export async function GET(request: Request) {
     }
 
     if (userId) {
-      const auth = validateStoreAccess({ storeId, userId });
+      const auth = await validateStoreAccess({ storeId, userId });
       if (!auth.allowed) {
         return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
       }
     }
 
-    const rentals = db.getRentals(storeId);
+    const rentals = await db.getRentals(storeId);
     return NextResponse.json({ rentals });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -48,16 +48,19 @@ export async function POST(request: Request) {
 
     const hasItems = items && Array.isArray(items) && items.length > 0;
     if (!storeId || (!productId && !hasItems) || !clientId || !dueDate) {
-      return NextResponse.json({ error: 'Faltan datos obligatorios para registrar el alquiler' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Faltan datos obligatorios para registrar el alquiler' },
+        { status: 400 }
+      );
     }
 
     // Validar acceso a la sede
-    const auth = validateStoreAccess({ storeId, userId });
+    const auth = await validateStoreAccess({ storeId, userId });
     if (!auth.allowed) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
     }
 
-    const result = db.createRental(storeId, {
+    const result = await db.createRental(storeId, {
       productId,
       clientId,
       userId: auth.user!.id,
@@ -72,10 +75,6 @@ export async function POST(request: Request) {
       items: hasItems ? items : undefined,
       totalQuantity: totalQuantity ? Number(totalQuantity) : undefined,
     });
-
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
 
     return NextResponse.json({ rental: result.rental }, { status: 201 });
   } catch (error: any) {
@@ -93,22 +92,18 @@ export async function PUT(request: Request) {
     }
 
     // Validar acceso a la sede
-    const auth = validateStoreAccess({ storeId, userId });
+    const auth = await validateStoreAccess({ storeId, userId });
     if (!auth.allowed) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
     }
 
-    const result = db.returnRental(storeId, {
+    const result = await db.returnRental(storeId, {
       rentalId,
       userId: auth.user!.id,
       userName: userName || auth.user!.name,
       penaltyAmount: Number(penaltyAmount) || 0,
       returnNotes: returnNotes || '',
     });
-
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
 
     return NextResponse.json({ rental: result.rental });
   } catch (error: any) {

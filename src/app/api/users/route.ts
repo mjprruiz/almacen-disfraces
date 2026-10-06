@@ -10,14 +10,14 @@ export async function GET(request: Request) {
 
     // Si se pasa userId, validar que si no es superadmin, solo vea usuarios de su sede
     if (userId) {
-      const requestingUser = db.getUserById(userId);
+      const requestingUser = await db.getUserById(userId);
       if (requestingUser && requestingUser.role !== 'superadmin') {
-        const users = db.getUsers(requestingUser.storeId);
+        const users = await db.getUsers(requestingUser.storeId);
         return NextResponse.json({ users });
       }
     }
 
-    const users = db.getUsers(storeIdParam);
+    const users = await db.getUsers(storeIdParam);
     return NextResponse.json({ users });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      const updatedUser = db.changeUserPin(userId, currentPin, newPin);
+      const updatedUser = await db.changeUserPin(userId, currentPin, newPin);
       return NextResponse.json({
         message: '¡Tu PIN ha sido cambiado con éxito!',
         user: updatedUser,
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     // Verificar identidad del creador si se proporciona creatorUserId
     let actualCreatorRole = userRole;
     if (creatorUserId) {
-      const creator = db.getUserById(creatorUserId);
+      const creator = await db.getUserById(creatorUserId);
       if (!creator || creator.active === false) {
         return NextResponse.json({ error: 'Creador no autorizado o inactivo.' }, { status: 401 });
       }
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const newUser = db.createUser({
+    const newUser = await db.createUser({
       storeId,
       name,
       username,
@@ -113,7 +113,7 @@ export async function PUT(request: Request) {
     let operatorStoreId: string | undefined;
 
     if (adminUserId) {
-      const operator = db.getUserById(adminUserId);
+      const operator = await db.getUserById(adminUserId);
       if (!operator || operator.active === false) {
         return NextResponse.json({ error: 'Operador no autorizado.' }, { status: 401 });
       }
@@ -134,7 +134,7 @@ export async function PUT(request: Request) {
 
     // Si el operador es un Dueño, validar que el usuario objetivo pertenezca a su misma sede
     if (operatorRole === 'dueno' && operatorStoreId) {
-      const targetUser = db.getUserById(userId);
+      const targetUser = await db.getUserById(userId);
       if (!targetUser || targetUser.storeId !== operatorStoreId) {
         return NextResponse.json(
           { error: 'Acceso denegado. No tienes permisos sobre usuarios de otra sede.' },
@@ -145,7 +145,7 @@ export async function PUT(request: Request) {
 
     // 1. Resetear PIN
     if (newPin) {
-      const updatedUser = db.resetUserPin(userId, newPin);
+      const updatedUser = await db.resetUserPin(userId, newPin);
       return NextResponse.json({
         message: 'PIN restablecido exitosamente.',
         user: updatedUser,
@@ -154,7 +154,7 @@ export async function PUT(request: Request) {
 
     // 2. Actualizaciones generales
     if (updates) {
-      const updatedUser = db.updateUser(userId, updates);
+      const updatedUser = await db.updateUser(userId, updates);
       return NextResponse.json({ user: updatedUser });
     }
 
@@ -175,7 +175,7 @@ export async function DELETE(request: Request) {
     let operatorStoreId: string | undefined;
 
     if (adminUserId) {
-      const operator = db.getUserById(adminUserId);
+      const operator = await db.getUserById(adminUserId);
       if (!operator || operator.active === false) {
         return NextResponse.json({ error: 'Operador no autorizado.' }, { status: 401 });
       }
@@ -195,7 +195,7 @@ export async function DELETE(request: Request) {
     }
 
     if (operatorRole === 'dueno' && operatorStoreId) {
-      const targetUser = db.getUserById(userId);
+      const targetUser = await db.getUserById(userId);
       if (!targetUser || targetUser.storeId !== operatorStoreId) {
         return NextResponse.json(
           { error: 'Acceso denegado. No tienes permisos sobre usuarios de otra sede.' },
@@ -204,7 +204,7 @@ export async function DELETE(request: Request) {
       }
     }
 
-    const success = db.deleteUser(userId);
+    const success = await db.deleteUser(userId);
     if (!success) {
       return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
     }

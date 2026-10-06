@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { supabase } from './supabase';
 import {
   Store,
   User,
@@ -14,17 +13,6 @@ import {
   DashboardMetrics,
 } from './types';
 
-interface DatabaseSchema {
-  stores: Store[];
-  users: User[];
-  products: Product[];
-  clients: Client[];
-  rentals: Rental[];
-  cashMovements: CashMovement[];
-}
-
-const DB_FILE = path.join(process.cwd(), 'data', 'database.json');
-
 function getTodayString(): string {
   const d = new Date();
   const year = d.getFullYear();
@@ -33,140 +21,213 @@ function getTodayString(): string {
   return `${year}-${month}-${day}`;
 }
 
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + days);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+// Mappers from Supabase snake_case to TypeScript camelCase
+function mapStore(row: any): Store {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    phone: row.phone || '',
+    address: row.address || '',
+    currency: row.currency || '$',
+    createdAt: row.created_at,
+  };
 }
 
-const initialSeedData: DatabaseSchema = {
-  stores: [
-    {
-      id: 'store_principal',
-      name: 'Sede Principal',
-      slug: 'principal',
-      phone: '',
-      address: '',
-      currency: '$',
-      createdAt: '2026-09-20T00:00:00Z',
-    },
-  ],
-  users: [
-    {
-      id: 'user_superadmin',
-      storeId: 'store_principal',
-      name: 'Super Administrador',
-      username: 'superadmin',
-      role: 'superadmin',
-      password: 'admin123',
-      pin: '0000',
-      active: true,
-      createdAt: '2026-09-20T00:00:00Z',
-    },
-  ],
-  products: [],
-  clients: [],
-  rentals: [],
-  cashMovements: [],
-};
-
-function readDb(): DatabaseSchema {
-  if (!fs.existsSync(DB_FILE)) {
-    fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
-    fs.writeFileSync(DB_FILE, JSON.stringify(initialSeedData, null, 2), 'utf-8');
-    return initialSeedData;
-  }
-  try {
-    const raw = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(raw);
-  } catch (error) {
-    console.error('Error reading database file:', error);
-    return initialSeedData;
-  }
+function mapUser(row: any): User {
+  return {
+    id: row.id,
+    storeId: row.store_id || '',
+    name: row.name,
+    username: row.username,
+    role: row.role as UserRole,
+    password: row.password || undefined,
+    pin: row.pin || '1234',
+    active: row.active !== false,
+    createdAt: row.created_at,
+  };
 }
 
-function writeDb(data: DatabaseSchema): void {
-  fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+function mapProduct(row: any): Product {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    code: row.code,
+    name: row.name,
+    category: row.category,
+    gender: row.gender,
+    size: row.size,
+    purchaseCost: Number(row.purchase_cost) || 0,
+    rentalPrice: Number(row.rental_price) || 0,
+    salePrice: Number(row.sale_price) || 0,
+    stockTotal: Number(row.stock_total) || 0,
+    rentedCount: Number(row.rented_count) || 0,
+    soldCount: Number(row.sold_count) || 0,
+    availableStock: Number(row.available_stock) || 0,
+    notes: row.notes || '',
+    createdAt: row.created_at,
+  };
+}
+
+function mapClient(row: any): Client {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    name: row.name,
+    phone: row.phone,
+    dni: row.dni || '',
+    email: row.email || '',
+    address: row.address || '',
+    notes: row.notes || '',
+    createdAt: row.created_at,
+  };
+}
+
+function mapRental(row: any): Rental {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    ticketCode: row.ticket_code,
+    productId: row.product_id || '',
+    productName: row.product_name || '',
+    productCode: row.product_code || '',
+    productSize: row.product_size || '',
+    clientId: row.client_id,
+    clientName: row.client_name,
+    clientPhone: row.client_phone,
+    clientDni: row.client_dni || '',
+    userId: row.user_id,
+    userName: row.user_name,
+    rentalDate: row.rental_date,
+    dueDate: row.due_date,
+    returnDate: row.return_date || undefined,
+    rentalPrice: Number(row.rental_price) || 0,
+    subtotal: row.subtotal !== null ? Number(row.subtotal) : undefined,
+    discount: row.discount !== null ? Number(row.discount) : undefined,
+    guaranteeAmount: Number(row.guarantee_amount) || 0,
+    guaranteeType: row.guarantee_type as GuaranteeType,
+    status: row.status as RentalStatus,
+    penaltyAmount: row.penalty_amount !== null ? Number(row.penalty_amount) : undefined,
+    notes: row.notes || '',
+    items: Array.isArray(row.items) ? row.items : [],
+    totalQuantity: Number(row.total_quantity) || 1,
+    createdAt: row.created_at,
+  };
+}
+
+function mapCashMovement(row: any): CashMovement {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    userId: row.user_id,
+    userName: row.user_name,
+    type: row.type,
+    amount: Number(row.amount) || 0,
+    description: row.description,
+    referenceId: row.reference_id || undefined,
+    date: row.date,
+    createdAt: row.created_at,
+  };
 }
 
 export const db = {
   // STORES
-  getStores(): Store[] {
-    return readDb().stores;
+  async getStores(): Promise<Store[]> {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(mapStore);
   },
 
-  getStore(storeId: string): Store | undefined {
-    return readDb().stores.find((s) => s.id === storeId);
+  async getStore(storeId: string): Promise<Store | undefined> {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('*')
+      .eq('id', storeId)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapStore(data) : undefined;
   },
 
-  createStore(params: {
+  async createStore(params: {
     name: string;
     phone?: string;
     address?: string;
     currency?: string;
-  }): Store {
-    const data = readDb();
+  }): Promise<Store> {
     const slug = params.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const existing = data.stores.find((s) => s.slug === slug);
+    const { data: existing } = await supabase
+      .from('stores')
+      .select('id')
+      .eq('slug', slug)
+      .maybeSingle();
     if (existing) {
       throw new Error(`Ya existe una sede con el identificador "${slug}".`);
     }
 
-    const newStore: Store = {
+    const newStore = {
       id: 'store_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
       name: params.name.trim(),
       slug,
       phone: params.phone || '',
       address: params.address || '',
       currency: params.currency || '$',
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
-    data.stores.push(newStore);
-    writeDb(data);
-    return newStore;
+    const { data, error } = await supabase.from('stores').insert(newStore).select().single();
+    if (error) throw error;
+    return mapStore(data);
   },
 
-  updateStore(storeId: string, updates: Partial<Store>): Store {
-    const data = readDb();
-    const index = data.stores.findIndex((s) => s.id === storeId);
-    if (index === -1) {
-      throw new Error('Sede no encontrada.');
-    }
-    const current = data.stores[index];
-    const updated: Store = {
-      ...current,
-      ...updates,
-      id: current.id,
-    };
-    data.stores[index] = updated;
-    writeDb(data);
-    return updated;
+  async updateStore(storeId: string, updates: Partial<Store>): Promise<Store> {
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name.trim();
+    if (updates.phone !== undefined) payload.phone = updates.phone;
+    if (updates.address !== undefined) payload.address = updates.address;
+    if (updates.currency !== undefined) payload.currency = updates.currency;
+
+    const { data, error } = await supabase
+      .from('stores')
+      .update(payload)
+      .eq('id', storeId)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapStore(data);
   },
 
   // USERS
-  getUsers(storeId?: string): User[] {
-    const users = readDb().users;
+  async getUsers(storeId?: string): Promise<User[]> {
+    let query = supabase.from('users').select('*').order('created_at', { ascending: true });
     if (storeId) {
-      return users.filter((u) => u.storeId === storeId);
+      query = query.eq('store_id', storeId);
     }
-    return users;
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(mapUser);
   },
 
-  getUserById(id: string): User | undefined {
-    return readDb().users.find((u) => u.id === id);
+  async getUserById(id: string): Promise<User | undefined> {
+    const { data, error } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data ? mapUser(data) : undefined;
   },
 
-  getUserByUsername(username: string): User | undefined {
-    return readDb().users.find((u) => u.username === username);
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .ilike('username', username.trim())
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapUser(data) : undefined;
   },
 
-  authenticateUser(userId: string, pin: string): User {
-    const user = readDb().users.find((u) => u.id === userId);
+  async authenticateUser(userId: string, pin: string): Promise<User> {
+    const user = await this.getUserById(userId);
     if (!user) {
       throw new Error('Usuario no encontrado.');
     }
@@ -179,14 +240,19 @@ export const db = {
     return user;
   },
 
-  authenticateSuperadmin(username: string, password: string): User {
+  async authenticateSuperadmin(username: string, password: string): Promise<User> {
     const cleanUsername = username.trim().toLowerCase();
-    const user = readDb().users.find(
-      (u) => u.role === 'superadmin' && u.username.toLowerCase() === cleanUsername
-    );
-    if (!user) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('role', 'superadmin')
+      .ilike('username', cleanUsername)
+      .maybeSingle();
+
+    if (error || !data) {
       throw new Error('Usuario superadministrador no encontrado.');
     }
+    const user = mapUser(data);
     if (user.active === false) {
       throw new Error('Esta cuenta de superadministrador está desactivada.');
     }
@@ -196,393 +262,357 @@ export const db = {
     return user;
   },
 
-  changeUserPin(userId: string, currentPin: string, newPin: string): User {
-    const data = readDb();
-    const index = data.users.findIndex((u) => u.id === userId);
-    if (index === -1) {
+  async changeUserPin(userId: string, currentPin: string, newPin: string): Promise<User> {
+    const user = await this.getUserById(userId);
+    if (!user) {
       throw new Error('Usuario no encontrado.');
     }
-    const user = data.users[index];
-    if (user.pin && user.pin !== currentPin) {
-      throw new Error('El PIN actual ingresado no es correcto.');
+    if (user.pin !== currentPin) {
+      throw new Error('El PIN actual es incorrecto.');
     }
-    if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-      throw new Error('El nuevo PIN debe ser exactamente de 4 dígitos numéricos.');
+    if (!/^\d{4}$/.test(newPin)) {
+      throw new Error('El nuevo PIN debe contener exactamente 4 dígitos numéricos.');
     }
 
-    user.pin = newPin;
-    data.users[index] = user;
-    writeDb(data);
-    return user;
+    const { data, error } = await supabase
+      .from('users')
+      .update({ pin: newPin })
+      .eq('id', userId)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapUser(data);
   },
 
-  createUser(params: {
-    storeId: string;
+  async resetUserPin(userId: string, newPin: string): Promise<User> {
+    if (!/^\d{4}$/.test(newPin)) {
+      throw new Error('El nuevo PIN debe contener exactamente 4 dígitos numéricos.');
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ pin: newPin })
+      .eq('id', userId)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapUser(data);
+  },
+
+  async createUser(params: {
+    creatorRole: UserRole;
+    storeId?: string;
     name: string;
     username: string;
     role: UserRole;
-    pin?: string;
     password?: string;
-    creatorRole?: UserRole;
-  }): User {
-    const data = readDb();
-    const cleanUsername = params.username.trim().toLowerCase();
-    const existing = data.users.find((u) => u.username.toLowerCase() === cleanUsername);
-    if (existing) {
-      throw new Error(`El nombre de usuario "${cleanUsername}" ya existe. Elige otro.`);
-    }
-
-    // Role permissions
+    pin?: string;
+  }): Promise<User> {
     if (params.role === 'dueno' && params.creatorRole !== 'superadmin') {
       throw new Error('Solo el Superadministrador puede registrar Dueños de sede.');
     }
     if (params.role === 'superadmin' && params.creatorRole !== 'superadmin') {
       throw new Error('No se pueden registrar cuentas de superadministrador adicionales.');
     }
-
     if (params.role !== 'superadmin') {
-      if (!params.pin || params.pin.length !== 4 || !/^\d{4}$/.test(params.pin)) {
-        throw new Error('El PIN debe ser exactamente de 4 dígitos numéricos.');
+      if (!params.storeId) {
+        throw new Error('Debes asignar una sede al usuario.');
       }
     }
 
-    const newUser: User = {
-      id: 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      storeId: params.storeId,
+    const cleanUsername = params.username.trim().toLowerCase();
+    const existing = await this.getUserByUsername(cleanUsername);
+    if (existing) {
+      throw new Error(`El nombre de usuario "${cleanUsername}" ya está en uso.`);
+    }
+
+    const pin = params.pin ? params.pin.trim() : '1234';
+    if (!/^\d{4}$/.test(pin)) {
+      throw new Error('El PIN debe tener exactamente 4 dígitos numéricos.');
+    }
+
+    const newUser = {
+      id: 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+      store_id: params.storeId || null,
       name: params.name.trim(),
       username: cleanUsername,
       role: params.role,
-      pin: params.pin || '1234',
-      password: params.password,
+      password: params.password || null,
+      pin,
       active: true,
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
-    data.users.push(newUser);
-    writeDb(data);
-    return newUser;
+    const { data, error } = await supabase.from('users').insert(newUser).select().single();
+    if (error) throw error;
+    return mapUser(data);
   },
 
-  updateUser(userId: string, updates: {
-    name?: string;
-    role?: UserRole;
-    storeId?: string;
-    active?: boolean;
-    pin?: string;
-    password?: string;
-  }): User {
-    const data = readDb();
-    const index = data.users.findIndex((u) => u.id === userId);
-    if (index === -1) {
-      throw new Error('Usuario no encontrado.');
-    }
+  async updateUser(
+    userId: string,
+    updates: { name?: string; active?: boolean; storeId?: string }
+  ): Promise<User> {
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name.trim();
+    if (updates.active !== undefined) payload.active = updates.active;
+    if (updates.storeId !== undefined) payload.store_id = updates.storeId;
 
-    if (updates.pin) {
-      if (updates.pin.length !== 4 || !/^\d{4}$/.test(updates.pin)) {
-        throw new Error('El PIN debe ser exactamente de 4 dígitos numéricos.');
-      }
-    }
-
-    const current = data.users[index];
-    const updated: User = {
-      ...current,
-      name: updates.name ? updates.name.trim() : current.name,
-      role: updates.role || current.role,
-      storeId: updates.storeId || current.storeId,
-      active: updates.active !== undefined ? updates.active : (current.active ?? true),
-      pin: updates.pin || current.pin,
-      password: updates.password || current.password,
-    };
-
-    data.users[index] = updated;
-    writeDb(data);
-    return updated;
+    const { data, error } = await supabase
+      .from('users')
+      .update(payload)
+      .eq('id', userId)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapUser(data);
   },
 
-  resetUserPin(userId: string, newPin: string): User {
-    if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-      throw new Error('El nuevo PIN debe ser exactamente de 4 dígitos numéricos.');
-    }
-    return this.updateUser(userId, { pin: newPin });
-  },
-
-  deleteUser(userId: string): boolean {
-    const data = readDb();
-    const index = data.users.findIndex((u) => u.id === userId);
-    if (index === -1) return false;
-    data.users[index].active = false;
-    writeDb(data);
+  async deleteUser(userId: string): Promise<boolean> {
+    const { error } = await supabase.from('users').delete().eq('id', userId);
+    if (error) throw error;
     return true;
   },
 
   // PRODUCTS
-  getProducts(storeId: string): Product[] {
-    const all = readDb().products.filter((p) => p.storeId === storeId);
-    // Recalculate availableStock dynamically
-    return all.map((p) => ({
-      ...p,
-      availableStock: Math.max(0, p.stockTotal - p.rentedCount - p.soldCount),
-    }));
+  async getProducts(storeId: string): Promise<Product[]> {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(mapProduct);
   },
 
-  getProduct(storeId: string, id: string): Product | undefined {
-    const data = readDb();
-    const p = data.products.find((prod) => prod.storeId === storeId && prod.id === id);
-    if (!p) return undefined;
-    return {
-      ...p,
-      availableStock: Math.max(0, p.stockTotal - p.rentedCount - p.soldCount),
-    };
+  async getProduct(storeId: string, productId: string): Promise<Product | undefined> {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('id', productId)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapProduct(data) : undefined;
   },
 
-  addProduct(storeId: string, item: Omit<Product, 'id' | 'storeId' | 'availableStock' | 'rentedCount' | 'soldCount' | 'createdAt'>): Product {
-    const data = readDb();
-    
-    // 1. Validar unicidad de código por tienda
-    const codeUpper = item.code.trim().toUpperCase();
-    const existingCode = data.products.find(
-      (p) => p.storeId === storeId && p.code.toUpperCase() === codeUpper
-    );
-    if (existingCode) {
-      throw new Error(`El código "${codeUpper}" ya está asignado al disfraz "${existingCode.name}". Cada disfraz debe tener un código único.`);
+  async addProduct(
+    storeId: string,
+    params: Omit<
+      Product,
+      'id' | 'storeId' | 'rentedCount' | 'soldCount' | 'availableStock' | 'createdAt'
+    >
+  ): Promise<Product> {
+    const { data: existing } = await supabase
+      .from('products')
+      .select('id')
+      .eq('store_id', storeId)
+      .eq('code', params.code.trim())
+      .maybeSingle();
+
+    if (existing) {
+      throw new Error(`Ya existe un producto con el código "${params.code}".`);
     }
 
-    // 2. Validaciones numéricas
-    if (item.stockTotal < 1) {
-      throw new Error('El stock total debe ser al menos 1 unidad.');
-    }
-    if (item.rentalPrice < 0 || item.purchaseCost < 0 || item.salePrice < 0) {
-      throw new Error('Los precios y costos no pueden ser valores negativos.');
-    }
-
-    const newProduct: Product = {
-      ...item,
-      code: codeUpper,
+    const stockTotal = Number(params.stockTotal) || 0;
+    const newProduct = {
       id: 'prod_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      storeId,
-      rentedCount: 0,
-      soldCount: 0,
-      availableStock: item.stockTotal,
-      createdAt: new Date().toISOString(),
+      store_id: storeId,
+      code: params.code.trim(),
+      name: params.name.trim(),
+      category: params.category,
+      gender: params.gender,
+      size: params.size,
+      purchase_cost: Number(params.purchaseCost) || 0,
+      rental_price: Number(params.rentalPrice) || 0,
+      sale_price: Number(params.salePrice) || 0,
+      stock_total: stockTotal,
+      rented_count: 0,
+      sold_count: 0,
+      available_stock: stockTotal,
+      notes: params.notes || '',
+      created_at: new Date().toISOString(),
     };
 
-    data.products.push(newProduct);
-
-    // Solo si NO es inventario inicial (es compra nueva realizada hoy), registrar egreso de caja
-    if (!item.isInitialInventory && newProduct.purchaseCost > 0 && newProduct.stockTotal > 0) {
-      data.cashMovements.push({
-        id: 'mov_' + Date.now(),
-        storeId,
-        userId: 'sistema',
-        userName: 'Compra de Nuevo Stock',
-        type: 'egreso_compra',
-        amount: newProduct.purchaseCost * newProduct.stockTotal,
-        description: `Compra de stock nuevo: ${newProduct.name} (${newProduct.stockTotal} unid. x $${newProduct.purchaseCost})`,
-        referenceId: newProduct.id,
-        date: getTodayString(),
-        createdAt: new Date().toISOString(),
-      });
-    }
-
-    writeDb(data);
-    return newProduct;
+    const { data, error } = await supabase.from('products').insert(newProduct).select().single();
+    if (error) throw error;
+    return mapProduct(data);
   },
 
-  updateProduct(storeId: string, id: string, updates: Partial<Product>): Product | null {
-    const data = readDb();
-    const index = data.products.findIndex((p) => p.storeId === storeId && p.id === id);
-    if (index === -1) return null;
-
-    const current = data.products[index];
-
-    // Validar unicidad si se actualiza el código
-    if (updates.code) {
-      const codeUpper = updates.code.trim().toUpperCase();
-      const existingCode = data.products.find(
-        (p) => p.storeId === storeId && p.id !== id && p.code.toUpperCase() === codeUpper
-      );
-      if (existingCode) {
-        throw new Error(`El código "${codeUpper}" ya está asignado al disfraz "${existingCode.name}".`);
-      }
-      updates.code = codeUpper;
+  async updateProduct(
+    storeId: string,
+    productId: string,
+    updates: Partial<Product>
+  ): Promise<Product> {
+    const current = await this.getProduct(storeId, productId);
+    if (!current) {
+      throw new Error('Producto no encontrado.');
     }
 
-    const updated: Product = {
-      ...current,
-      ...updates,
-      availableStock: Math.max(
-        0,
-        (updates.stockTotal ?? current.stockTotal) -
-          (updates.rentedCount ?? current.rentedCount) -
-          (updates.soldCount ?? current.soldCount)
-      ),
-    };
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name.trim();
+    if (updates.category !== undefined) payload.category = updates.category;
+    if (updates.gender !== undefined) payload.gender = updates.gender;
+    if (updates.size !== undefined) payload.size = updates.size;
+    if (updates.purchaseCost !== undefined) payload.purchase_cost = Number(updates.purchaseCost);
+    if (updates.rentalPrice !== undefined) payload.rental_price = Number(updates.rentalPrice);
+    if (updates.salePrice !== undefined) payload.sale_price = Number(updates.salePrice);
+    if (updates.notes !== undefined) payload.notes = updates.notes;
 
-    data.products[index] = updated;
-    writeDb(data);
-    return updated;
+    if (updates.stockTotal !== undefined) {
+      const newTotal = Number(updates.stockTotal);
+      payload.stock_total = newTotal;
+      payload.available_stock = Math.max(0, newTotal - current.rentedCount - current.soldCount);
+    }
+
+    const { data, error } = await supabase
+      .from('products')
+      .update(payload)
+      .eq('id', productId)
+      .eq('store_id', storeId)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapProduct(data);
   },
 
-  recordSale(
+  async deleteProduct(storeId: string, productId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', productId)
+      .eq('store_id', storeId);
+    if (error) throw error;
+    return true;
+  },
+
+  async restockProduct(
     storeId: string,
     params: {
       productId: string;
-      clientId?: string;
-      userId: string;
-      userName: string;
-      quantity: number;
-      salePrice: number;
-      discount?: number;
-      notes?: string;
-    }
-  ): { success: boolean; product?: Product; error?: string } {
-    const data = readDb();
-    const product = data.products.find((p) => p.storeId === storeId && p.id === params.productId);
-    if (!product) return { success: false, error: 'Disfraz no encontrado' };
-
-    const available = product.stockTotal - product.rentedCount - product.soldCount;
-    if (available < params.quantity) {
-      return { success: false, error: `Stock insuficiente. Solo hay ${available} unidad(es) disponible(s) para venta.` };
-    }
-
-    const client = params.clientId ? data.clients.find((c) => c.storeId === storeId && c.id === params.clientId) : null;
-    const clientLabel = client ? ` a ${client.name}` : ' (Venta directa mostrador)';
-
-    product.soldCount += params.quantity;
-    product.availableStock = Math.max(0, product.stockTotal - product.rentedCount - product.soldCount);
-
-    const discount = Math.max(0, Number(params.discount) || 0);
-    const grossAmount = params.salePrice * params.quantity;
-    const totalAmount = Math.max(0, grossAmount - discount);
-    const discountText = discount > 0 ? ` (Desc: -$${discount})` : '';
-
-    data.cashMovements.push({
-      id: 'mov_' + Date.now(),
-      storeId,
-      userId: params.userId,
-      userName: params.userName,
-      type: 'ingreso_venta',
-      amount: totalAmount,
-      description: `Venta: ${params.quantity}x ${product.name} [${product.size}]${clientLabel}${discountText}`,
-      referenceId: product.id,
-      date: getTodayString(),
-      createdAt: new Date().toISOString(),
-    });
-
-    writeDb(data);
-    return { success: true, product };
-  },
-
-  restockProduct(
-    storeId: string,
-    params: {
-      productId: string;
-      userId: string;
-      userName: string;
       quantity: number;
       purchaseCost: number;
-      notes?: string;
+      userId?: string;
+      userName?: string;
     }
-  ): { success: boolean; product?: Product; error?: string } {
-    const data = readDb();
-    const product = data.products.find((p) => p.storeId === storeId && p.id === params.productId);
-    if (!product) return { success: false, error: 'Disfraz no encontrado' };
-
-    if (params.quantity < 1) {
-      return { success: false, error: 'La cantidad a ingresar debe ser al menos 1 unidad' };
-    }
-    if (params.purchaseCost < 0) {
-      return { success: false, error: 'El costo de compra no puede ser negativo' };
+  ): Promise<{ product: Product; movement: CashMovement }> {
+    const prod = await this.getProduct(storeId, params.productId);
+    if (!prod) {
+      throw new Error('Producto no encontrado.');
     }
 
-    // Aumentar stock
-    product.stockTotal += params.quantity;
-    product.availableStock = Math.max(0, product.stockTotal - product.rentedCount - product.soldCount);
-    // Actualizar al último precio de compra
-    product.purchaseCost = params.purchaseCost;
+    const newTotal = prod.stockTotal + params.quantity;
+    const newAvailable = Math.max(0, newTotal - prod.rentedCount - prod.soldCount);
+
+    const { data: updatedProd, error: pErr } = await supabase
+      .from('products')
+      .update({
+        stock_total: newTotal,
+        available_stock: newAvailable,
+        purchase_cost: params.purchaseCost,
+      })
+      .eq('id', params.productId)
+      .eq('store_id', storeId)
+      .select()
+      .single();
+    if (pErr) throw pErr;
 
     const totalCost = params.purchaseCost * params.quantity;
-    const noteText = params.notes ? ` (${params.notes})` : '';
-
-    // Registrar salida de dinero en caja
-    data.cashMovements.push({
+    const movement = {
       id: 'mov_' + Date.now(),
-      storeId,
-      userId: params.userId,
-      userName: params.userName,
+      store_id: storeId,
+      user_id: params.userId || 'dueño',
+      user_name: params.userName || 'Dueño de Tienda',
       type: 'egreso_compra',
       amount: totalCost,
-      description: `Reabastecimiento: +${params.quantity}x ${product.name} [${product.size}] a $${params.purchaseCost} c/u${noteText}`,
-      referenceId: product.id,
+      description: `Reabastecimiento: +${params.quantity}x ${prod.name} [${prod.size}] a $${params.purchaseCost} c/u`,
+      reference_id: prod.id,
       date: getTodayString(),
-      createdAt: new Date().toISOString(),
-    });
+      created_at: new Date().toISOString(),
+    };
 
-    writeDb(data);
-    return { success: true, product };
-  },
+    const { data: newMov, error: mErr } = await supabase
+      .from('cash_movements')
+      .insert(movement)
+      .select()
+      .single();
+    if (mErr) throw mErr;
 
-  deleteProduct(storeId: string, id: string): boolean {
-    const data = readDb();
-    const initialLen = data.products.length;
-    data.products = data.products.filter((p) => !(p.storeId === storeId && p.id === id));
-    if (data.products.length !== initialLen) {
-      writeDb(data);
-      return true;
-    }
-    return false;
+    return { product: mapProduct(updatedProd), movement: mapCashMovement(newMov) };
   },
 
   // CLIENTS
-  getClients(storeId: string): Client[] {
-    return readDb().clients.filter((c) => c.storeId === storeId);
+  async getClients(storeId: string): Promise<Client[]> {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('name', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(mapClient);
   },
 
-  addClient(storeId: string, clientData: Omit<Client, 'id' | 'storeId' | 'createdAt'>): Client {
-    const data = readDb();
-    // Check if phone or dni already exists
-    const existing = data.clients.find(
-      (c) => c.storeId === storeId && (c.phone === clientData.phone || (clientData.dni && c.dni === clientData.dni))
-    );
-    if (existing) {
-      return existing;
-    }
+  async getClient(storeId: string, clientId: string): Promise<Client | undefined> {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('id', clientId)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapClient(data) : undefined;
+  },
 
-    const newClient: Client = {
-      ...clientData,
-      id: 'cli_' + Date.now(),
-      storeId,
-      createdAt: new Date().toISOString(),
+  async addClient(
+    storeId: string,
+    params: Omit<Client, 'id' | 'storeId' | 'createdAt'>
+  ): Promise<Client> {
+    const newClient = {
+      id: 'cli_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+      store_id: storeId,
+      name: params.name.trim(),
+      phone: params.phone.trim(),
+      dni: params.dni?.trim() || '',
+      email: params.email?.trim() || '',
+      address: params.address?.trim() || '',
+      notes: params.notes || '',
+      created_at: new Date().toISOString(),
     };
-    data.clients.push(newClient);
-    writeDb(data);
-    return newClient;
+
+    const { data, error } = await supabase.from('clients').insert(newClient).select().single();
+    if (error) throw error;
+    return mapClient(data);
   },
 
   // RENTALS
-  getRentals(storeId: string): Rental[] {
-    const data = readDb();
-    const today = getTodayString();
-
-    return data.rentals
-      .filter((r) => r.storeId === storeId)
-      .map((r): Rental => {
-        // Auto update status to demorado if past due date and still activo
-        if (r.status === 'activo' && r.dueDate < today) {
-          return { ...r, status: 'demorado' as RentalStatus };
-        }
-        return r;
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  async getRentals(storeId: string): Promise<Rental[]> {
+    const { data, error } = await supabase
+      .from('rentals')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(mapRental);
   },
 
-  createRental(
+  async getRental(storeId: string, rentalId: string): Promise<Rental | undefined> {
+    const { data, error } = await supabase
+      .from('rentals')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('id', rentalId)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? mapRental(data) : undefined;
+  },
+
+  async createRental(
     storeId: string,
     params: {
       productId?: string;
       clientId: string;
       userId: string;
       userName: string;
+      rentalDate?: string;
       dueDate: string;
       rentalPrice?: number;
       subtotal?: number;
@@ -593,280 +623,358 @@ export const db = {
       items?: RentalItem[];
       totalQuantity?: number;
     }
-  ): { rental: Rental; error?: string } {
-    const data = readDb();
-    const client = data.clients.find((c) => c.storeId === storeId && c.id === params.clientId);
+  ): Promise<{ rental: Rental; movement: CashMovement }> {
+    const client = await this.getClient(storeId, params.clientId);
     if (!client) {
-      return { rental: null as any, error: 'Cliente no encontrado' };
+      throw new Error('Cliente no encontrado.');
     }
 
-    const today = getTodayString();
-    if (params.dueDate < today) {
-      return { rental: null as any, error: 'La fecha pactada de devolución no puede ser anterior a la fecha actual.' };
-    }
+    let rentalItems: RentalItem[] =
+      params.items && params.items.length > 0 ? [...params.items] : [];
 
-    const hasItems = params.items && params.items.length > 0;
-    let itemsToProcess: RentalItem[] = [];
-    let primaryProduct: Product | undefined;
-    let totalQty = 1;
-
-    if (hasItems) {
-      itemsToProcess = params.items!;
-      totalQty = itemsToProcess.reduce((sum, it) => sum + (it.quantity || 1), 0);
-
-      // 1. Validar stock de cada item
-      for (const it of itemsToProcess) {
-        const prod = data.products.find((p) => p.storeId === storeId && p.id === it.productId);
-        if (!prod) {
-          return { rental: null as any, error: `Disfraz "${it.productName || it.productId}" no encontrado en el catálogo.` };
-        }
-        const available = prod.stockTotal - prod.rentedCount - prod.soldCount;
-        if (available < it.quantity) {
-          return {
-            rental: null as any,
-            error: `Stock insuficiente para "${prod.name}" [${prod.size}]. Solicitado: ${it.quantity}, disponible: ${available}`,
-          };
-        }
-      }
-
-      // 2. Descontar stock de cada item
-      for (const it of itemsToProcess) {
-        const prod = data.products.find((p) => p.storeId === storeId && p.id === it.productId)!;
-        prod.rentedCount += it.quantity;
-        prod.availableStock = Math.max(0, prod.stockTotal - prod.rentedCount - prod.soldCount);
-      }
-
-      const firstProd = data.products.find((p) => p.storeId === storeId && p.id === itemsToProcess[0].productId);
-      primaryProduct = firstProd;
-    } else {
-      // Compatibilidad hacia atrás: alquiler de un solo producto
-      if (!params.productId) {
-        return { rental: null as any, error: 'Debes seleccionar al menos un disfraz para alquilar.' };
-      }
-      const product = data.products.find((p) => p.storeId === storeId && p.id === params.productId);
-      if (!product) {
-        return { rental: null as any, error: 'Disfraz no encontrado' };
-      }
-
-      const available = product.stockTotal - product.rentedCount - product.soldCount;
-      if (available <= 0) {
-        return { rental: null as any, error: 'No hay stock disponible para alquilar este disfraz' };
-      }
-
-      product.rentedCount += 1;
-      product.availableStock = Math.max(0, product.stockTotal - product.rentedCount - product.soldCount);
-      primaryProduct = product;
-
-      const singlePrice = params.rentalPrice !== undefined && Number(params.rentalPrice) > 0
-        ? Number(params.rentalPrice)
-        : product.rentalPrice;
-
-      itemsToProcess = [
-        {
-          productId: product.id,
-          productName: product.name,
-          productCode: product.code,
-          productSize: product.size,
+    if (rentalItems.length === 0 && params.productId) {
+      const prod = await this.getProduct(storeId, params.productId);
+      if (prod) {
+        rentalItems.push({
+          productId: prod.id,
+          productName: prod.name,
+          productCode: prod.code,
+          productSize: prod.size,
           quantity: 1,
-          unitPrice: singlePrice,
-          subtotal: singlePrice,
-        },
-      ];
-      totalQty = 1;
+          unitPrice: prod.rentalPrice,
+          subtotal: prod.rentalPrice,
+        });
+      }
     }
 
+    if (rentalItems.length === 0) {
+      throw new Error('Debes seleccionar al menos un disfraz para registrar el alquiler.');
+    }
+
+    // Verify and decrement availableStock
+    for (const item of rentalItems) {
+      const prod = await this.getProduct(storeId, item.productId);
+      if (!prod) {
+        throw new Error(`Disfraz "${item.productName}" no encontrado.`);
+      }
+      if (prod.availableStock < item.quantity) {
+        throw new Error(
+          `Stock insuficiente para "${prod.name}". Disponibles: ${prod.availableStock}, solicitadas: ${item.quantity}.`
+        );
+      }
+      await supabase
+        .from('products')
+        .update({
+          rented_count: prod.rentedCount + item.quantity,
+          available_stock: Math.max(0, prod.availableStock - item.quantity),
+        })
+        .eq('id', prod.id)
+        .eq('store_id', storeId);
+    }
+
+    const grossSubtotal = rentalItems.reduce(
+      (s, it) => s + (it.subtotal ?? it.unitPrice * it.quantity),
+      0
+    );
     const discount = Math.max(0, Number(params.discount) || 0);
-    let grossSubtotal = itemsToProcess.reduce((sum, it) => sum + (it.subtotal ?? (it.unitPrice * it.quantity)), 0);
-    if (params.subtotal !== undefined && Number(params.subtotal) > 0) {
-      grossSubtotal = Number(params.subtotal);
-    }
+    let finalRentalPrice =
+      params.rentalPrice !== undefined ? Number(params.rentalPrice) : Math.max(0, grossSubtotal - discount);
 
-    // Calcular precio final: si viene en 0 o no viene, calcular subtotal - descuento
-    let finalRentalPrice = params.rentalPrice !== undefined && Number(params.rentalPrice) > 0
-      ? Number(params.rentalPrice)
-      : Math.max(0, grossSubtotal - discount);
-
-    // Si aún da 0 pero hay subtotal y no se pidió un descuento explícito que cubra el 100%, usar el subtotal
     if (finalRentalPrice <= 0 && grossSubtotal > 0 && discount === 0) {
       finalRentalPrice = grossSubtotal;
     }
 
-    const ticketSeq = data.rentals.filter((r) => r.storeId === storeId).length + 1001;
-    const ticketCode = `ALQ-${ticketSeq}`;
+    const totalGarments = rentalItems.reduce((s, it) => s + it.quantity, 0);
 
-    const displayName = itemsToProcess.length === 1
-      ? itemsToProcess[0].productName
-      : `${itemsToProcess[0].productName} (+${itemsToProcess.length - 1} trajes)`;
+    const { count } = await supabase
+      .from('rentals')
+      .select('*', { count: 'exact', head: true })
+      .eq('store_id', storeId);
 
-    const newRental: Rental = {
+    const ticketCode = `ALQ-${1001 + (count || 0)}`;
+
+    const rentalRow = {
       id: 'rent_' + Date.now(),
-      storeId,
-      ticketCode,
-      productId: primaryProduct?.id || itemsToProcess[0].productId,
-      productName: displayName,
-      productCode: primaryProduct?.code || itemsToProcess[0].productCode,
-      productSize: primaryProduct?.size || itemsToProcess[0].productSize,
-      clientId: client.id,
-      clientName: client.name,
-      clientPhone: client.phone,
-      clientDni: client.dni,
-      userId: params.userId,
-      userName: params.userName,
-      rentalDate: today,
-      dueDate: params.dueDate,
+      store_id: storeId,
+      ticket_code: ticketCode,
+      product_id: rentalItems[0].productId,
+      product_name: rentalItems[0].productName,
+      product_code: rentalItems[0].productCode,
+      product_size: rentalItems[0].productSize,
+      client_id: client.id,
+      client_name: client.name,
+      client_phone: client.phone,
+      client_dni: client.dni || '',
+      user_id: params.userId,
+      user_name: params.userName,
+      rental_date: params.rentalDate || getTodayString(),
+      due_date: params.dueDate,
+      rental_price: finalRentalPrice,
       subtotal: grossSubtotal,
       discount: discount,
-      rentalPrice: finalRentalPrice,
-      guaranteeAmount: Number(params.guaranteeAmount || 0),
-      guaranteeType: params.guaranteeType,
-      status: params.dueDate < today ? 'demorado' : 'activo',
+      guarantee_amount: Number(params.guaranteeAmount) || 0,
+      guarantee_type: params.guaranteeType,
+      status: 'activo',
       notes: params.notes || '',
-      items: itemsToProcess,
-      totalQuantity: totalQty,
-      createdAt: new Date().toISOString(),
+      items: rentalItems,
+      total_quantity: totalGarments,
+      created_at: new Date().toISOString(),
     };
 
-    const discountText = discount > 0 ? ` (Desc: -$${discount})` : '';
+    const { data: newRental, error: rErr } = await supabase
+      .from('rentals')
+      .insert(rentalRow)
+      .select()
+      .single();
+    if (rErr) throw rErr;
 
-    // Record cash income for the rental fee
-    data.cashMovements.push({
+    const movementRow = {
       id: 'mov_' + Date.now(),
-      storeId,
-      userId: params.userId,
-      userName: params.userName,
+      store_id: storeId,
+      user_id: params.userId,
+      user_name: params.userName,
       type: 'ingreso_alquiler',
-      amount: newRental.rentalPrice,
-      description: `Alquiler ${ticketCode}: ${displayName} (${totalQty} prendas) a ${client.name}${discountText}`,
-      referenceId: newRental.id,
-      date: today,
-      createdAt: new Date().toISOString(),
-    });
+      amount: finalRentalPrice,
+      description: `Alquiler ${ticketCode}: ${rentalItems[0].productName}${
+        rentalItems.length > 1 ? ` (+${rentalItems.length - 1} trajes)` : ''
+      } (${totalGarments} prendas) a ${client.name}${
+        discount > 0 ? ` (Descuento de $${discount.toFixed(2)} aplicado)` : ''
+      }`,
+      reference_id: newRental.id,
+      date: getTodayString(),
+      created_at: new Date().toISOString(),
+    };
 
-    data.rentals.push(newRental);
-    writeDb(data);
+    const { data: newMov, error: mErr } = await supabase
+      .from('cash_movements')
+      .insert(movementRow)
+      .select()
+      .single();
+    if (mErr) throw mErr;
 
-    return { rental: newRental };
+    return { rental: mapRental(newRental), movement: mapCashMovement(newMov) };
   },
 
-  returnRental(
+  async returnRental(
     storeId: string,
     params: {
       rentalId: string;
-      userId: string;
-      userName: string;
       penaltyAmount?: number;
       returnNotes?: string;
+      userId: string;
+      userName: string;
     }
-  ): { rental: Rental | null; error?: string } {
-    const data = readDb();
-    const rental = data.rentals.find((r) => r.storeId === storeId && r.id === params.rentalId);
+  ): Promise<{ rental: Rental; movement?: CashMovement }> {
+    const rental = await this.getRental(storeId, params.rentalId);
     if (!rental) {
-      return { rental: null, error: 'Alquiler no encontrado' };
+      throw new Error('Alquiler no encontrado.');
+    }
+    if (rental.status === 'devuelto') {
+      throw new Error('Este alquiler ya fue devuelto.');
     }
 
-    if (rental.status === 'devuelto') {
-      return { rental, error: 'Este alquiler ya fue devuelto con anterioridad' };
+    const items =
+      rental.items && rental.items.length > 0
+        ? rental.items
+        : [
+            {
+              productId: rental.productId,
+              productName: rental.productName,
+              productCode: rental.productCode,
+              productSize: rental.productSize,
+              quantity: 1,
+              unitPrice: rental.rentalPrice,
+            },
+          ];
+
+    for (const it of items) {
+      const prod = await this.getProduct(storeId, it.productId);
+      if (prod) {
+        const newRented = Math.max(0, prod.rentedCount - it.quantity);
+        const newAvailable = Math.max(0, prod.stockTotal - newRented - prod.soldCount);
+        await supabase
+          .from('products')
+          .update({
+            rented_count: newRented,
+            available_stock: newAvailable,
+          })
+          .eq('id', prod.id)
+          .eq('store_id', storeId);
+      }
     }
 
     const today = getTodayString();
-    rental.status = 'devuelto';
-    rental.returnDate = today;
-    rental.penaltyAmount = Number(params.penaltyAmount || 0);
-    if (params.returnNotes) {
-      rental.notes = (rental.notes ? rental.notes + ' | ' : '') + `Devolución: ${params.returnNotes}`;
-    }
+    const penaltyAmount = Number(params.penaltyAmount) || 0;
+    const combinedNotes = params.returnNotes
+      ? rental.notes
+        ? `${rental.notes} | Dev.: ${params.returnNotes}`
+        : params.returnNotes
+      : rental.notes;
 
-    // Restore product stock for all items
-    if (rental.items && rental.items.length > 0) {
-      for (const it of rental.items) {
-        const product = data.products.find((p) => p.storeId === storeId && p.id === it.productId);
-        if (product) {
-          product.rentedCount = Math.max(0, product.rentedCount - (it.quantity || 1));
-          product.availableStock = Math.max(0, product.stockTotal - product.rentedCount - product.soldCount);
-        }
-      }
-    } else {
-      const product = data.products.find((p) => p.storeId === storeId && p.id === rental.productId);
-      if (product) {
-        product.rentedCount = Math.max(0, product.rentedCount - 1);
-        product.availableStock = Math.max(0, product.stockTotal - product.rentedCount - product.soldCount);
-      }
-    }
+    const { data: updatedRental, error: rErr } = await supabase
+      .from('rentals')
+      .update({
+        status: 'devuelto',
+        return_date: today,
+        penalty_amount: penaltyAmount,
+        notes: combinedNotes,
+      })
+      .eq('id', params.rentalId)
+      .eq('store_id', storeId)
+      .select()
+      .single();
+    if (rErr) throw rErr;
 
-    // If penalty was charged, record cash movement
-    if (rental.penaltyAmount > 0) {
-      data.cashMovements.push({
+    let movement: CashMovement | undefined = undefined;
+    if (penaltyAmount > 0) {
+      const movementRow = {
         id: 'mov_' + Date.now(),
-        storeId,
-        userId: params.userId,
-        userName: params.userName,
+        store_id: storeId,
+        user_id: params.userId,
+        user_name: params.userName,
         type: 'ingreso_alquiler',
-        amount: rental.penaltyAmount,
+        amount: penaltyAmount,
         description: `Penalidad por mora/daños en ${rental.ticketCode} (${rental.clientName})`,
-        referenceId: rental.id,
+        reference_id: rental.id,
         date: today,
-        createdAt: new Date().toISOString(),
-      });
+        created_at: new Date().toISOString(),
+      };
+      const { data: newMov, error: mErr } = await supabase
+        .from('cash_movements')
+        .insert(movementRow)
+        .select()
+        .single();
+      if (mErr) throw mErr;
+      movement = mapCashMovement(newMov);
     }
 
-    writeDb(data);
-    return { rental };
+    return { rental: mapRental(updatedRental), movement };
+  },
+
+  // SALES
+  async recordSale(
+    storeId: string,
+    params: {
+      productId: string;
+      clientId?: string;
+      quantity: number;
+      salePrice: number;
+      discount?: number;
+      notes?: string;
+      userId: string;
+      userName: string;
+    }
+  ): Promise<{ product: Product; movement: CashMovement }> {
+    const prod = await this.getProduct(storeId, params.productId);
+    if (!prod) {
+      throw new Error('Producto no encontrado.');
+    }
+    if (prod.availableStock < params.quantity) {
+      throw new Error(
+        `Stock insuficiente. Disponibles para venta: ${prod.availableStock}, solicitadas: ${params.quantity}.`
+      );
+    }
+
+    const newSold = prod.soldCount + params.quantity;
+    const newAvailable = Math.max(0, prod.availableStock - params.quantity);
+
+    const { data: updatedProd, error: pErr } = await supabase
+      .from('products')
+      .update({
+        sold_count: newSold,
+        available_stock: newAvailable,
+      })
+      .eq('id', params.productId)
+      .eq('store_id', storeId)
+      .select()
+      .single();
+    if (pErr) throw pErr;
+
+    let clientName = 'Mostrador (Cliente anónimo)';
+    if (params.clientId) {
+      const client = await this.getClient(storeId, params.clientId);
+      if (client) clientName = client.name;
+    }
+
+    const grossSubtotal = params.salePrice * params.quantity;
+    const discount = Math.max(0, Number(params.discount) || 0);
+    const totalAmount = Math.max(0, grossSubtotal - discount);
+
+    const movementRow = {
+      id: 'mov_' + Date.now(),
+      store_id: storeId,
+      user_id: params.userId,
+      user_name: params.userName,
+      type: 'ingreso_venta',
+      amount: totalAmount,
+      description: `Venta directa de ${params.quantity}x ${prod.name} [${prod.size}] a ${clientName}${
+        discount > 0 ? ` (Subtotal $${grossSubtotal.toFixed(2)} - Dto. $${discount.toFixed(2)})` : ''
+      }`,
+      reference_id: prod.id,
+      date: getTodayString(),
+      created_at: new Date().toISOString(),
+    };
+
+    const { data: newMov, error: mErr } = await supabase
+      .from('cash_movements')
+      .insert(movementRow)
+      .select()
+      .single();
+    if (mErr) throw mErr;
+
+    return { product: mapProduct(updatedProd), movement: mapCashMovement(newMov) };
   },
 
   // CASH MOVEMENTS
-  getCashMovements(storeId: string): CashMovement[] {
-    return readDb()
-      .cashMovements.filter((m) => m.storeId === storeId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  async getCashMovements(storeId: string): Promise<CashMovement[]> {
+    const { data, error } = await supabase
+      .from('cash_movements')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(mapCashMovement);
   },
 
   // DASHBOARD METRICS
-  getDashboardMetrics(storeId: string): DashboardMetrics {
-    const data = readDb();
+  async getDashboardMetrics(storeId: string): Promise<DashboardMetrics> {
     const today = getTodayString();
+    const [products, rentals, movements] = await Promise.all([
+      this.getProducts(storeId),
+      this.getRentals(storeId),
+      this.getCashMovements(storeId),
+    ]);
 
-    const storeProducts = data.products.filter((p) => p.storeId === storeId);
-    const storeRentals = data.rentals.filter((r) => r.storeId === storeId);
-    const storeMovements = data.cashMovements.filter((m) => m.storeId === storeId);
-
-    // Patrimonio en Disfraces: costo de compra * unidades actuales en propiedad (disponibles en tienda + alquiladas que van a regresar)
-    // Las prendas vendidas se descuentan automáticamente del patrimonio al salir de forma permanente del inventario
-    const totalInventoryCost = storeProducts.reduce((sum, p) => {
+    const totalInventoryCost = products.reduce((sum, p) => {
       const currentOwnedUnits = Math.max(0, p.stockTotal - p.soldCount);
-      return sum + (p.purchaseCost * currentOwnedUnits);
+      return sum + p.purchaseCost * currentOwnedUnits;
     }, 0);
 
-    // Ingresos por Alquiler
-    const totalRentalRevenue = storeMovements
+    const totalRentalRevenue = movements
       .filter((m) => m.type === 'ingreso_alquiler')
       .reduce((sum, m) => sum + m.amount, 0);
 
-    // Ingresos por Venta
-    const totalSalesRevenue = storeMovements
+    const totalSalesRevenue = movements
       .filter((m) => m.type === 'ingreso_venta')
       .reduce((sum, m) => sum + m.amount, 0);
 
     const totalRevenue = totalRentalRevenue + totalSalesRevenue;
 
-    // Egresos registrados en caja (solo compras de stock y gastos operativos de caja)
-    const totalExpenses = storeMovements
+    const totalExpenses = movements
       .filter((m) => m.type === 'egreso_compra' || m.type === 'egreso_gasto')
       .reduce((sum, m) => sum + m.amount, 0);
 
-    // Flujo de Caja Real (Ganancia Neta): Ingresos - Egresos reales de caja
     const estimatedNetProfit = totalRevenue - totalExpenses;
 
-    // Operational metrics
-    const activeRentals = storeRentals.filter((r) => r.status !== 'devuelto');
+    const activeRentals = rentals.filter((r) => r.status !== 'devuelto');
     const overdueRentals = activeRentals.filter((r) => r.dueDate < today);
     const dueTodayRentals = activeRentals.filter((r) => r.dueDate === today);
 
-    // Cash held in guarantees
     const heldGuarantees = activeRentals
       .filter((r) => r.guaranteeType === 'efectivo' || r.guaranteeType === 'efectivo_y_documento')
       .reduce((sum, r) => sum + (r.guaranteeAmount || 0), 0);
 
-    const totalAvailableStock = storeProducts.reduce((sum, p) => sum + Math.max(0, p.stockTotal - p.rentedCount - p.soldCount), 0);
+    const totalAvailableStock = products.reduce((sum, p) => sum + p.availableStock, 0);
 
     return {
       totalInventoryCost,
@@ -880,7 +988,7 @@ export const db = {
       dueTodayRentalsCount: dueTodayRentals.length,
       heldGuarantees,
       totalAvailableStock,
-      totalCatalogCount: storeProducts.length,
+      totalCatalogCount: products.length,
     };
   },
 };

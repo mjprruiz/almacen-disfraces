@@ -5,14 +5,14 @@ import { validateStoreAccess } from '@/lib/auth-guard';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { storeId, productId, userId, userName, quantity, purchaseCost, notes } = body;
+    const { storeId, productId, userId, userName, quantity, purchaseCost } = body;
 
     if (!storeId || !productId) {
       return NextResponse.json({ error: 'storeId y productId son obligatorios' }, { status: 400 });
     }
 
     // Role check: Only 'dueno' of this store can restock
-    const auth = validateStoreAccess({ storeId, userId, requiredRole: 'dueno' });
+    const auth = await validateStoreAccess({ storeId, userId, requiredRole: 'dueno' });
     if (!auth.allowed) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
     }
@@ -27,18 +27,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'El costo de compra no puede ser negativo' }, { status: 400 });
     }
 
-    const result = db.restockProduct(storeId, {
+    const result = await db.restockProduct(storeId, {
       productId,
       userId: auth.user!.id,
       userName: userName || auth.user!.name,
       quantity: qty,
       purchaseCost: cost,
-      notes,
     });
-
-    if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
 
     return NextResponse.json({ success: true, product: result.product });
   } catch (error: any) {

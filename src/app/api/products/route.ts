@@ -13,13 +13,13 @@ export async function GET(request: Request) {
     }
 
     if (userId) {
-      const auth = validateStoreAccess({ storeId, userId });
+      const auth = await validateStoreAccess({ storeId, userId });
       if (!auth.allowed) {
         return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
       }
     }
 
-    const products = db.getProducts(storeId);
+    const products = await db.getProducts(storeId);
     return NextResponse.json({ products });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -36,12 +36,12 @@ export async function POST(request: Request) {
     }
 
     // Role check: Only 'dueno' of this store can add products
-    const auth = validateStoreAccess({ storeId, userId, requiredRole: 'dueno' });
+    const auth = await validateStoreAccess({ storeId, userId, requiredRole: 'dueno' });
     if (!auth.allowed) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
     }
 
-    const created = db.addProduct(storeId, {
+    const created = await db.addProduct(storeId, {
       code: product.code.trim().toUpperCase(),
       name: product.name.trim(),
       category: product.category || 'General',
@@ -71,12 +71,12 @@ export async function PUT(request: Request) {
     }
 
     // Only 'dueno' of this store can modify products
-    const auth = validateStoreAccess({ storeId, userId, requiredRole: 'dueno' });
+    const auth = await validateStoreAccess({ storeId, userId, requiredRole: 'dueno' });
     if (!auth.allowed) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
     }
 
-    const updated = db.updateProduct(storeId, productId, updates);
+    const updated = await db.updateProduct(storeId, productId, updates);
     if (!updated) {
       return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 });
     }
@@ -98,12 +98,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Parámetros incompletos' }, { status: 400 });
     }
 
-    const auth = validateStoreAccess({ storeId, userId, requiredRole: 'dueno' });
+    const auth = await validateStoreAccess({ storeId, userId, requiredRole: 'dueno' });
     if (!auth.allowed) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
     }
 
-    const success = db.deleteProduct(storeId, productId);
+    const success = await db.deleteProduct(storeId, productId);
     return NextResponse.json({ success });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -13,13 +13,13 @@ export async function GET(request: Request) {
     }
 
     if (userId) {
-      const auth = validateStoreAccess({ storeId, userId });
+      const auth = await validateStoreAccess({ storeId, userId });
       if (!auth.allowed) {
         return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
       }
     }
 
-    const clients = db.getClients(storeId);
+    const clients = await db.getClients(storeId);
     return NextResponse.json({ clients });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -36,12 +36,12 @@ export async function POST(request: Request) {
     }
 
     // Validar acceso a la sede
-    const auth = validateStoreAccess({ storeId, userId });
+    const auth = await validateStoreAccess({ storeId, userId });
     if (!auth.allowed) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode });
     }
 
-    const created = db.addClient(storeId, {
+    const created = await db.addClient(storeId, {
       name: client.name.trim(),
       phone: client.phone.trim(),
       dni: (client.dni || '').trim(),
