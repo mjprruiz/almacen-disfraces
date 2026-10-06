@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { DashboardMetrics, CashMovement, User, Rental } from '@/lib/types';
+import { getPeruTodayString, getPeruDateWithOffset } from '@/lib/dates';
 import {
   DollarSign,
   TrendingUp,
@@ -37,7 +38,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   // Date filters: 'today' | 'week' | 'month' | 'all' | 'custom'
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'all' | 'custom'>('all');
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getPeruTodayString(), []);
   const [customStartDate, setCustomStartDate] = useState(todayStr);
   const [customEndDate, setCustomEndDate] = useState(todayStr);
 
@@ -49,9 +50,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   // Filter movements by date range
   const periodMovements = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const currentMonthPrefix = today.slice(0, 7); // e.g. "2026-09"
+    const today = getPeruTodayString();
+    const sevenDaysAgo = getPeruDateWithOffset(-7);
+    const currentMonthPrefix = today.slice(0, 7); // e.g. "2026-10"
 
     return cashMovements.filter((m) => {
       if (dateFilter === 'today') return m.date === today;

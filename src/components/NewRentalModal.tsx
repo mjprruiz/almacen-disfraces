@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Client, RentalItem, GuaranteeType } from '@/lib/types';
+import { getPeruTodayString, getPeruDateWithOffset } from '@/lib/dates';
 import {
   X,
   Search,
@@ -62,11 +63,7 @@ export const NewRentalModal: React.FC<NewRentalModalProps> = ({
   // Cart / Items list for group or multi-item rentals
   const [items, setItems] = useState<RentalItem[]>([]);
 
-  const [dueDate, setDueDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 2); // Default 2 days rental
-    return d.toISOString().split('T')[0];
-  });
+  const [dueDate, setDueDate] = useState(() => getPeruDateWithOffset(2));
   const [rentalPrice, setRentalPrice] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
   const [guaranteeAmount, setGuaranteeAmount] = useState<number>(0);
@@ -114,9 +111,7 @@ export const NewRentalModal: React.FC<NewRentalModalProps> = ({
       setHasDniGuarantee(true); // DNI en custodia es estándar por defecto
       setIsSinGarantia(false);
       setNotes('');
-      const d = new Date();
-      d.setDate(d.getDate() + 2);
-      setDueDate(d.toISOString().split('T')[0]);
+      setDueDate(getPeruDateWithOffset(2));
     }
   }, [isOpen]);
 
@@ -255,14 +250,12 @@ export const NewRentalModal: React.FC<NewRentalModalProps> = ({
   };
 
   const handleSetDays = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    setDueDate(d.toISOString().split('T')[0]);
+    setDueDate(getPeruDateWithOffset(days));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getPeruTodayString();
 
     if (!selectedClientId) {
       setError('Debes seleccionar un cliente');
@@ -715,7 +708,7 @@ export const NewRentalModal: React.FC<NewRentalModalProps> = ({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
+                min={getPeruTodayString()}
                 className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs focus:ring-2 focus:ring-purple-500 focus:bg-white transition outline-none"
                 required
               />

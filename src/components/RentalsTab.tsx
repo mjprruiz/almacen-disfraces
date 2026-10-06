@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Rental, Store } from '@/lib/types';
+import { getPeruTodayString } from '@/lib/dates';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { RentalDetailModal } from '@/components/RentalDetailModal';
 import {
@@ -46,7 +47,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRentalForDetail, setSelectedRentalForDetail] = useState<Rental | null>(null);
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getPeruTodayString(), []);
 
   // Filter rentals
   const filteredRentals = useMemo(() => {

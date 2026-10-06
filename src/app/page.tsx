@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Store, User, Product, Client, Rental, RentalItem, GuaranteeType, CashMovement, DashboardMetrics } from '@/lib/types';
+import { getPeruTodayString } from '@/lib/dates';
 import { Header } from '@/components/Header';
 import { RentalsTab } from '@/components/RentalsTab';
 import { InventoryTab } from '@/components/InventoryTab';
@@ -178,7 +179,7 @@ export default function Home() {
   }, [refreshStoreData]);
 
   // Overdue and Due Today counters for badges
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getPeruTodayString();
   const overdueCount = rentals.filter((r) => r.status === 'demorado').length;
   const dueTodayCount = rentals.filter((r) => r.status !== 'devuelto' && r.dueDate === todayStr).length;
 

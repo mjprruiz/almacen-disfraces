@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getPeruTodayString } from './dates';
 import {
   Store,
   User,
@@ -14,12 +15,9 @@ import {
 } from './types';
 
 function getTodayString(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return getPeruTodayString();
 }
+
 
 // Mappers from Supabase snake_case to TypeScript camelCase
 function mapStore(row: any): Store {

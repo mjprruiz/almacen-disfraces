@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Rental } from '@/lib/types';
+import { getPeruTodayString } from '@/lib/dates';
 import {
   X,
   FileText,
@@ -34,7 +35,7 @@ export const RentalDetailModal: React.FC<RentalDetailModalProps> = ({
 }) => {
   if (!isOpen || !rental) return null;
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getPeruTodayString();
   const isReturned = rental.status === 'devuelto';
   const isOverdue = !isReturned && rental.dueDate < todayStr;
   const isDueToday = !isReturned && rental.dueDate === todayStr;

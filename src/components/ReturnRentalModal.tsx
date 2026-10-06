@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Rental } from '@/lib/types';
+import { getPeruTodayString } from '@/lib/dates';
 import { X, CheckCircle, AlertTriangle, RotateCcw, DollarSign } from 'lucide-react';
 
 interface ReturnRentalModalProps {
@@ -28,7 +29,7 @@ export const ReturnRentalModal: React.FC<ReturnRentalModalProps> = ({
 
   if (!isOpen || !rental) return null;
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getPeruTodayString();
   const isOverdue = rental.dueDate < todayStr;
   
   // Calculate days difference
