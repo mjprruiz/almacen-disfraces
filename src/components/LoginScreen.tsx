@@ -38,14 +38,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [adminUsername, setAdminUsername] = useState('superadmin');
   const [adminPassword, setAdminPassword] = useState('');
 
-  // Pre-select the first store by default
-  useEffect(() => {
-    if (stores.length > 0 && !selectedStoreId) {
-      setSelectedStoreId(stores[0].id);
-    }
-  }, [stores, selectedStoreId]);
+  // Filter only active stores for login (inactive/suspended stores are hidden)
+  const activeStores = stores.filter((s) => s.active !== false);
 
-  const activeStore = stores.find((s) => s.id === selectedStoreId) || stores[0];
+  // Pre-select the first active store by default
+  useEffect(() => {
+    if (activeStores.length > 0 && (!selectedStoreId || !activeStores.some((s) => s.id === selectedStoreId))) {
+      setSelectedStoreId(activeStores[0].id);
+    }
+  }, [activeStores, selectedStoreId]);
+
+  const activeStore = activeStores.find((s) => s.id === selectedStoreId) || activeStores[0];
 
   // Filter active users for the chosen store
   const storeUsers = users.filter(
@@ -266,7 +269,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <span>Selecciona la Sede / Tienda</span>
                 </label>
                 <div className="grid grid-cols-1 gap-2">
-                  {stores.map((s) => {
+                  {activeStores.map((s) => {
                     const isSelected = s.id === selectedStoreId;
                     return (
                       <button

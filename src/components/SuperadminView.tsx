@@ -100,6 +100,38 @@ export const SuperadminView: React.FC<SuperadminViewProps> = ({
     }
   };
 
+  const handleToggleStoreStatus = async (store: Store) => {
+    const nextStatus = store.active === false;
+    const actionText = nextStatus ? 'reactivar' : 'desactivar / suspender';
+    if (!window.confirm(`¿Estás seguro de que deseas ${actionText} la sede "${store.name}"?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      const res = await fetch('/api/stores', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userRole: 'superadmin',
+          storeId: store.id,
+          updates: { active: nextStatus },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al cambiar estado de la sede');
+
+      showSuccess(`Sede "${store.name}" ${nextStatus ? 'reactivada' : 'suspendida'} exitosamente.`);
+      await onRefreshStores();
+    } catch (err: any) {
+      setError(err.message || 'Error al actualizar estado de la sede');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateDueno = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{4}$/.test(duenoPin)) {
@@ -472,20 +504,40 @@ export const SuperadminView: React.FC<SuperadminViewProps> = ({
               {stores.map((s) => {
                 const storeDuenos = users.filter((u) => u.storeId === s.id && u.role === 'dueno');
                 const storeEmps = users.filter((u) => u.storeId === s.id && u.role === 'empleado');
+                const isStoreActive = s.active !== false;
 
                 return (
                   <div
                     key={s.id}
-                    className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm hover:shadow-md transition space-y-4 flex flex-col justify-between"
+                    className={`bg-white border rounded-3xl p-5 shadow-sm hover:shadow-md transition space-y-4 flex flex-col justify-between ${
+                      isStoreActive ? 'border-slate-200' : 'border-rose-200 bg-rose-50/15'
+                    }`}
                   >
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
-                        <div className="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 font-bold">
+                        <div
+                          className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${
+                            isStoreActive
+                              ? 'bg-purple-50 border border-purple-200 text-purple-700'
+                              : 'bg-rose-50 border border-rose-200 text-rose-700'
+                          }`}
+                        >
                           <StoreIcon className="w-5 h-5" />
                         </div>
-                        <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold">
-                          {s.slug}
-                        </span>
+                        <div className="flex items-center space-x-1.5">
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              isStoreActive
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}
+                          >
+                            {isStoreActive ? '● Activa' : '● Suspendida'}
+                          </span>
+                          <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold">
+                            {s.slug}
+                          </span>
+                        </div>
                       </div>
 
                       <div>
@@ -507,14 +559,30 @@ export const SuperadminView: React.FC<SuperadminViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <div className="flex items-center space-x-3 text-slate-600">
-                        <span>Dueños: <strong className="text-slate-900">{storeDuenos.length}</strong></span>
-                        <span>Empleados: <strong className="text-slate-900">{storeEmps.length}</strong></span>
+                    <div className="pt-3 border-t border-slate-100 space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center space-x-3 text-slate-600">
+                          <span>Dueños: <strong className="text-slate-900">{storeDuenos.length}</strong></span>
+                          <span>Empleados: <strong className="text-slate-900">{storeEmps.length}</strong></span>
+                        </div>
+                        <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
+                          {s.currency}
+                        </span>
                       </div>
-                      <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
-                        {s.currency}
-                      </span>
+
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStoreStatus(s)}
+                          className={`w-full py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+                            isStoreActive
+                              ? 'bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 hover:border-rose-200 border border-transparent'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm'
+                          }`}
+                        >
+                          <span>{isStoreActive ? 'Desactivar / Suspender Sede' : 'Reactivar Sede Comercial'}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

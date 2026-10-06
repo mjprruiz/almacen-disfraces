@@ -7,6 +7,7 @@ export interface Store {
   phone: string;
   address: string;
   currency: string;
+  active?: boolean;
   createdAt: string;
 }
 

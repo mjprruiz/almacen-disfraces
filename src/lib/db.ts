@@ -28,6 +28,7 @@ function mapStore(row: any): Store {
     phone: row.phone || '',
     address: row.address || '',
     currency: row.currency || '$',
+    active: row.active !== false,
     createdAt: row.created_at,
   };
 }
@@ -186,6 +187,7 @@ export const db = {
     if (updates.phone !== undefined) payload.phone = updates.phone;
     if (updates.address !== undefined) payload.address = updates.address;
     if (updates.currency !== undefined) payload.currency = updates.currency;
+    if (updates.active !== undefined) payload.active = Boolean(updates.active);
 
     const { data, error } = await supabase
       .from('stores')

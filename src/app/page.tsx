@@ -113,9 +113,16 @@ export default function Home() {
         if (savedUserId) {
           const user = loadedUsers.find((u) => u.id === savedUserId && u.active !== false);
           if (user) {
-            setCurrentUser(user);
             const store = loadedStores.find((s) => s.id === user.storeId) || loadedStores[0];
-            if (store) setCurrentStore(store);
+            if (store && (store.active !== false || user.role === 'superadmin')) {
+              setCurrentUser(user);
+              setCurrentStore(store);
+            } else {
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('almacen_user_id');
+                localStorage.removeItem('almacen_store_id');
+              }
+            }
           }
         }
       } catch (err) {

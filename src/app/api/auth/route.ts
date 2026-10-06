@@ -79,10 +79,20 @@ export async function POST(request: Request) {
 
       try {
         const user = await db.authenticateUser(body.userId, body.pin);
+        const store = (await db.getStore(user.storeId)) || (await db.getStores())[0];
+
+        if (store && store.active === false && user.role !== 'superadmin') {
+          return NextResponse.json(
+            {
+              error: 'Acceso suspendido: Esta sede comercial se encuentra inactiva. Comunícate con el administrador.',
+            },
+            { status: 403 }
+          );
+        }
+
         // Login exitoso: limpiar intentos fallidos
         resetRateLimit(limitKey);
 
-        const store = (await db.getStore(user.storeId)) || (await db.getStores())[0];
         return NextResponse.json({ user, store });
       } catch (authErr: any) {
         const fail = recordFailedAttempt(limitKey, MAX_ATTEMPTS, WINDOW_MS, LOCKOUT_MS);
